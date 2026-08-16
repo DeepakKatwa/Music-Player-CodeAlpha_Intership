@@ -1,0 +1,673 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Nightwave — Player</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@600;700;800&family=Inter:wght@400;500;600&family=Space+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg-1:        #100E1B;
+    --bg-2:        #1B1730;
+    --panel:       #1E1A30;
+    --panel-edge:  rgba(255,255,255,0.06);
+    --text:        #F1EEFA;
+    --text-dim:    #9B93B8;
+    --accent:      #F5A623;
+    --accent-2:    #8B7CF6;
+    --track-bg:    #322C4C;
+    --vinyl:       #0B0A12;
+  }
+
+  *{ box-sizing:border-box; }
+
+  body{
+    margin:0;
+    min-height:100vh;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    background: radial-gradient(circle at 20% 0%, var(--bg-2), var(--bg-1) 55%);
+    font-family:'Inter', sans-serif;
+    padding: 24px;
+    color: var(--text);
+  }
+
+  .player{
+    width: 380px;
+    background: linear-gradient(165deg, rgba(255,255,255,0.045), rgba(255,255,255,0.01));
+    border: 1px solid var(--panel-edge);
+    border-radius: 24px;
+    padding: 26px 24px 22px;
+    backdrop-filter: blur(20px);
+    box-shadow: 0 30px 60px -20px rgba(0,0,0,0.6);
+  }
+
+  .top-row{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    margin-bottom: 22px;
+  }
+  .brand{
+    font-family:'Sora', sans-serif;
+    font-weight:700;
+    font-size:14px;
+    letter-spacing:0.02em;
+    color: var(--text);
+  }
+  .brand span{ color: var(--accent); }
+  .now-tag{
+    font-size:10px;
+    letter-spacing:0.14em;
+    text-transform:uppercase;
+    color: var(--text-dim);
+    display:flex;
+    align-items:center;
+    gap:6px;
+  }
+  .now-tag .led{
+    width:6px; height:6px; border-radius:50%;
+    background: #3D3652;
+  }
+  .now-tag.playing .led{
+    background: var(--accent);
+    box-shadow: 0 0 8px var(--accent);
+  }
+
+  /* ---- Vinyl + tonearm ---- */
+  .stage{
+    position:relative;
+    display:flex;
+    justify-content:center;
+    align-items:center;
+    height:190px;
+    margin-bottom:18px;
+  }
+
+  .vinyl{
+    width:170px; height:170px;
+    border-radius:50%;
+    background:
+      repeating-radial-gradient(circle at center, #26202F 0px, #26202F 2px, var(--vinyl) 3px, var(--vinyl) 6px);
+    box-shadow: 0 12px 30px rgba(0,0,0,0.5), inset 0 0 0 1px rgba(255,255,255,0.05);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    animation: spin 6s linear infinite;
+    animation-play-state: paused;
+  }
+  .vinyl.spinning{ animation-play-state: running; }
+
+  .vinyl-label{
+    width:64px; height:64px;
+    border-radius:50%;
+    background: linear-gradient(135deg, var(--accent-2), #6E5FE0);
+    display:flex; align-items:center; justify-content:center;
+    box-shadow: inset 0 0 0 1px rgba(255,255,255,0.15);
+  }
+  .vinyl-label::after{
+    content:'';
+    width:8px; height:8px;
+    border-radius:50%;
+    background: var(--vinyl);
+  }
+
+  @keyframes spin{ to{ transform: rotate(360deg); } }
+
+  .tonearm{
+    position:absolute;
+    top:-4px; right:36px;
+    width:70px; height:70px;
+    transform-origin: top right;
+    transform: rotate(-24deg);
+    transition: transform 0.4s cubic-bezier(0.34, 1.2, 0.64, 1);
+  }
+  .tonearm.down{ transform: rotate(4deg); }
+  .tonearm .arm{
+    position:absolute;
+    top:6px; right:6px;
+    width:6px; height:64px;
+    border-radius:4px;
+    background: linear-gradient(180deg, #B7AEDD, #6E5FE0);
+    transform-origin: top center;
+  }
+  .tonearm .pivot{
+    position:absolute; top:0; right:0;
+    width:16px; height:16px;
+    border-radius:50%;
+    background:#B7AEDD;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.4);
+  }
+
+  /* ---- Track info ---- */
+  .track-info{ text-align:center; margin-bottom:18px; }
+  .track-title{
+    font-family:'Sora', sans-serif;
+    font-weight:700;
+    font-size:19px;
+    margin-bottom:4px;
+    white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+  }
+  .track-artist{
+    font-size:13px;
+    color: var(--text-dim);
+  }
+
+  /* ---- Progress ---- */
+  .progress-row{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    margin-bottom:16px;
+  }
+  .time{
+    font-family:'Space Mono', monospace;
+    font-size:11px;
+    color: var(--text-dim);
+    width:36px;
+  }
+  .time.end{ text-align:right; }
+
+  .bar{
+    flex:1;
+    height:5px;
+    background: var(--track-bg);
+    border-radius:4px;
+    position:relative;
+    cursor:pointer;
+  }
+  .bar-fill{
+    position:absolute; left:0; top:0; bottom:0;
+    width:0%;
+    background: linear-gradient(90deg, var(--accent-2), var(--accent));
+    border-radius:4px;
+  }
+  .bar-fill::after{
+    content:'';
+    position:absolute; right:-5px; top:50%;
+    width:11px; height:11px;
+    background:#fff;
+    border-radius:50%;
+    transform: translateY(-50%);
+    box-shadow: 0 0 0 3px rgba(245,166,35,0.25);
+  }
+
+  /* ---- Controls ---- */
+  .controls{
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    gap:18px;
+    margin-bottom:20px;
+  }
+  .ctrl-btn{
+    background:transparent;
+    border:none;
+    color: var(--text);
+    cursor:pointer;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    padding:8px;
+    opacity:0.85;
+    transition: opacity 0.15s, transform 0.1s;
+  }
+  .ctrl-btn:hover{ opacity:1; }
+  .ctrl-btn:active{ transform: scale(0.9); }
+  .ctrl-btn svg{ width:20px; height:20px; }
+
+  .play-btn{
+    width:54px; height:54px;
+    border-radius:50%;
+    background: linear-gradient(160deg, var(--accent), #D98A15);
+    box-shadow: 0 8px 20px -4px rgba(245,166,35,0.5);
+    opacity:1;
+  }
+  .play-btn svg{ width:22px; height:22px; fill:#1B1408; }
+
+  /* ---- Volume ---- */
+  .volume-row{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    margin-bottom:20px;
+    padding: 0 4px;
+  }
+  .volume-row svg{ width:16px; height:16px; fill: var(--text-dim); flex-shrink:0; }
+  input[type="range"].volume{
+    -webkit-appearance:none;
+    flex:1;
+    height:4px;
+    border-radius:4px;
+    background: var(--track-bg);
+    outline:none;
+  }
+  input[type="range"].volume::-webkit-slider-thumb{
+    -webkit-appearance:none;
+    width:12px; height:12px;
+    border-radius:50%;
+    background: var(--accent-2);
+    cursor:pointer;
+    box-shadow: 0 0 0 3px rgba(139,124,246,0.25);
+  }
+  input[type="range"].volume::-moz-range-thumb{
+    width:12px; height:12px;
+    border:none;
+    border-radius:50%;
+    background: var(--accent-2);
+    cursor:pointer;
+  }
+
+  /* ---- Playlist ---- */
+  .playlist-label{
+    font-size:10px;
+    letter-spacing:0.14em;
+    text-transform:uppercase;
+    color: var(--text-dim);
+    margin-bottom:8px;
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+  }
+  .autoplay-toggle{
+    display:flex; align-items:center; gap:6px;
+    font-size:10px; letter-spacing:0.05em; text-transform:none;
+    cursor:pointer; user-select:none;
+    color: var(--text-dim);
+  }
+  .autoplay-toggle input{ accent-color: var(--accent); cursor:pointer; }
+
+  .playlist{
+    max-height:180px;
+    overflow-y:auto;
+    display:flex;
+    flex-direction:column;
+    gap:4px;
+  }
+  .playlist::-webkit-scrollbar{ width:5px; }
+  .playlist::-webkit-scrollbar-thumb{ background: var(--track-bg); border-radius:4px; }
+
+  .song-row{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    padding:8px 10px;
+    border-radius:10px;
+    cursor:pointer;
+    transition: background 0.15s;
+  }
+  .song-row:hover{ background: rgba(255,255,255,0.04); }
+  .song-row.active{ background: rgba(245,166,35,0.1); }
+
+  .song-index{
+    font-family:'Space Mono', monospace;
+    font-size:11px;
+    color: var(--text-dim);
+    width:16px;
+  }
+  .song-row.active .song-index{ color: var(--accent); }
+
+  .song-meta{ flex:1; min-width:0; }
+  .song-meta .s-title{
+    font-size:13px; font-weight:600;
+    white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+  }
+  .song-meta .s-artist{
+    font-size:11px; color: var(--text-dim);
+    white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+  }
+  .song-dur{
+    font-family:'Space Mono', monospace;
+    font-size:11px;
+    color: var(--text-dim);
+  }
+
+  .eq{
+    display:flex; align-items:flex-end; gap:2px; height:12px; width:14px;
+  }
+  .eq span{
+    width:2px; background: var(--accent); border-radius:2px;
+    animation: eqbounce 0.9s ease-in-out infinite;
+  }
+  .eq span:nth-child(1){ height:40%; animation-delay:0s; }
+  .eq span:nth-child(2){ height:100%; animation-delay:0.15s; }
+  .eq span:nth-child(3){ height:60%; animation-delay:0.3s; }
+  @keyframes eqbounce{ 0%,100%{ transform: scaleY(0.4); } 50%{ transform: scaleY(1); } }
+</style>
+</head>
+<body>
+
+<div class="player">
+
+  <div class="top-row">
+    <div class="brand">NIGHT<span>WAVE</span></div>
+    <div class="now-tag" id="nowTag"><span class="led"></span><span id="nowText">Paused</span></div>
+  </div>
+
+  <div class="stage">
+    <div class="tonearm" id="tonearm">
+      <div class="pivot"></div>
+      <div class="arm"></div>
+    </div>
+    <div class="vinyl" id="vinyl">
+      <div class="vinyl-label"></div>
+    </div>
+  </div>
+
+  <div class="track-info">
+    <div class="track-title" id="trackTitle">—</div>
+    <div class="track-artist" id="trackArtist">—</div>
+  </div>
+
+  <div class="progress-row">
+    <span class="time" id="curTime">0:00</span>
+    <div class="bar" id="bar">
+      <div class="bar-fill" id="barFill"></div>
+    </div>
+    <span class="time end" id="durTime">0:00</span>
+  </div>
+
+  <div class="controls">
+    <button class="ctrl-btn" id="prevBtn" title="Previous" aria-label="Previous track">
+      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 6h2v12H6zm3.5 6 8.5 6V6z"/></svg>
+    </button>
+    <button class="ctrl-btn play-btn" id="playBtn" title="Play/Pause" aria-label="Play or pause">
+      <svg id="playIcon" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+    </button>
+    <button class="ctrl-btn" id="nextBtn" title="Next" aria-label="Next track">
+      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M16 6h2v12h-2zM6 6l8.5 6L6 18z"/></svg>
+    </button>
+  </div>
+
+  <div class="volume-row">
+    <svg viewBox="0 0 24 24"><path d="M3 10v4h4l5 5V5L7 10H3zm13.5 2A4.5 4.5 0 0 0 14 7.97v8.05A4.5 4.5 0 0 0 16.5 12z"/></svg>
+    <input type="range" class="volume" id="volume" min="0" max="100" value="70">
+  </div>
+
+  <div class="playlist-label">
+    <span>Playlist</span>
+    <label class="autoplay-toggle">
+      <input type="checkbox" id="autoplayToggle" checked>
+      Autoplay
+    </label>
+  </div>
+  <div class="playlist" id="playlist"></div>
+
+  <audio id="audio" preload="metadata"></audio>
+</div>
+
+<script>
+  // Playlist metadata: 100 Hindi song titles/artists, but the AUDIO itself is a
+  // royalty-free placeholder (SoundHelix demo tracks, cycled). No copyrighted
+  // audio is embedded here — swap each `src` for a file you actually hold
+  // rights to (your own library, a licensed streaming API, or royalty-free
+  // sources like Free Music Archive / Pixabay Music) before shipping this.
+  const PLACEHOLDER_SRCS = [
+    "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3",
+    "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3",
+    "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-3.mp3",
+    "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-4.mp3",
+    "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-5.mp3",
+    "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-6.mp3",
+    "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-7.mp3",
+    "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-8.mp3",
+    "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-9.mp3",
+    "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-10.mp3",
+    "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-11.mp3",
+    "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-12.mp3",
+    "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-13.mp3",
+    "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-14.mp3",
+    "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-15.mp3",
+    "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-16.mp3",
+  ];
+
+  const songMeta = [
+    { title: "Tum Hi Ho", artist: "Arijit Singh" },
+    { title: "Channa Mereya", artist: "Arijit Singh" },
+    { title: "Kesariya", artist: "Arijit Singh" },
+    { title: "Agar Tum Saath Ho", artist: "Alka Yagnik & Arijit Singh" },
+    { title: "Tujh Mein Rab Dikhta Hai", artist: "Roop Kumar Rathod" },
+    { title: "Pehli Nazar Mein", artist: "Atif Aslam" },
+    { title: "Tera Hone Laga Hoon", artist: "Atif Aslam & Alisha Chinai" },
+    { title: "Jeene Laga Hoon", artist: "Atif Aslam & Shreya Ghoshal" },
+    { title: "Tera Ban Jaunga", artist: "Akhil Sachdeva & Tulsi Kumar" },
+    { title: "Kaise Hua", artist: "Vishal Mishra" },
+    { title: "Bekhayali", artist: "Sachet Tandon" },
+    { title: "Khairiyat", artist: "Arijit Singh" },
+    { title: "Shayad", artist: "Arijit Singh" },
+    { title: "Hawayein", artist: "Arijit Singh" },
+    { title: "Phir Le Aya Dil", artist: "Arijit Singh" },
+    { title: "Muskurane", artist: "Arijit Singh" },
+    { title: "Hamari Adhuri Kahani", artist: "Arijit Singh" },
+    { title: "Soch Na Sake", artist: "Arijit Singh & Tulsi Kumar" },
+    { title: "Ae Dil Hai Mushkil", artist: "Arijit Singh" },
+    { title: "Ilahi", artist: "Arijit Singh" },
+    { title: "Kabira", artist: "Tochi Raina & Rekha Bhardwaj" },
+    { title: "Bulleya", artist: "Amit Mishra & Shilpa Rao" },
+    { title: "Iktara", artist: "Kavita Seth" },
+    { title: "Tum Se Hi", artist: "Mohit Chauhan" },
+    { title: "Tujhe Kitna Chahne Lage", artist: "Arijit Singh" },
+    { title: "Apna Bana Le", artist: "Arijit Singh" },
+    { title: "O Maahi", artist: "Arijit Singh" },
+    { title: "Satranga", artist: "Arijit Singh" },
+    { title: "Ve Kamleya", artist: "Arijit Singh, Shreya Ghoshal & others" },
+    { title: "Heeriye", artist: "Jasleen Royal & Arijit Singh" },
+    { title: "Chaleya", artist: "Arijit Singh & Shilpa Rao" },
+    { title: "Tere Hawaale", artist: "Arijit Singh & Shilpa Rao" },
+    { title: "Ranjha", artist: "B Praak & Jasleen Royal" },
+    { title: "Mann Bharryaa 2.0", artist: "B Praak" },
+    { title: "Mast Magan", artist: "Arijit Singh & Chinmayi" },
+    { title: "Samjhawan", artist: "Arijit Singh & Shreya Ghoshal" },
+    { title: "Janam Janam", artist: "Arijit Singh & Antara Mitra" },
+    { title: "Gerua", artist: "Arijit Singh & Antara Mitra" },
+    { title: "Zaalima", artist: "Arijit Singh & Harshdeep Kaur" },
+    { title: "Raabta", artist: "Arijit Singh" },
+    { title: "Enna Sona", artist: "Arijit Singh" },
+    { title: "Nashe Si Chadh Gayi", artist: "Arijit Singh" },
+    { title: "Ghungroo", artist: "Arijit Singh & Shilpa Rao" },
+    { title: "Tera Yaar Hoon Main", artist: "Arijit Singh" },
+    { title: "Pal", artist: "Arijit Singh & Shreya Ghoshal" },
+    { title: "Ve Maahi", artist: "Arijit Singh & Asees Kaur" },
+    { title: "Dil Diyan Gallan", artist: "Atif Aslam" },
+    { title: "Tere Sang Yaara", artist: "Atif Aslam" },
+    { title: "Tu Jaane Na", artist: "Atif Aslam" },
+    { title: "Woh Lamhe Woh Baatein", artist: "Atif Aslam" },
+    { title: "Aadat", artist: "Atif Aslam" },
+    { title: "Tajdar-e-Haram", artist: "Atif Aslam" },
+    { title: "Main Rang Sharbaton Ka", artist: "Atif Aslam & Chinmayi" },
+    { title: "Piya O Re Piya", artist: "Atif Aslam & Shreya Ghoshal" },
+    { title: "Tere Liye", artist: "Atif Aslam & Shreya Ghoshal" },
+    { title: "Tera Mera Rishta", artist: "Mustafa Zahid" },
+    { title: "Toh Phir Aao", artist: "Mustafa Zahid" },
+    { title: "Zara Sa", artist: "KK" },
+    { title: "Khuda Jaane", artist: "KK & Shilpa Rao" },
+    { title: "Kya Mujhe Pyaar Hai", artist: "KK" },
+    { title: "Aankhon Mein Teri", artist: "KK" },
+    { title: "Tu Hi Meri Shab Hai", artist: "KK" },
+    { title: "Labon Ko", artist: "KK" },
+    { title: "Alvida", artist: "KK" },
+    { title: "Sach Keh Raha Hai Deewana", artist: "KK" },
+    { title: "Zindagi Do Pal Ki", artist: "KK" },
+    { title: "Dil Ibaadat", artist: "KK" },
+    { title: "Ajab Si", artist: "KK" },
+    { title: "Beete Lamhein", artist: "KK" },
+    { title: "Dus Bahane", artist: "Shaan & KK" },
+    { title: "Chand Sifarish", artist: "Shaan & Kailash Kher" },
+    { title: "Jab Se Tere Naina", artist: "Shaan" },
+    { title: "Main Agar Kahoon", artist: "Sonu Nigam & Shreya Ghoshal" },
+    { title: "Kal Ho Naa Ho", artist: "Sonu Nigam" },
+    { title: "Abhi Mujh Mein Kahin", artist: "Sonu Nigam" },
+    { title: "Suraj Hua Maddham", artist: "Sonu Nigam & Alka Yagnik" },
+    { title: "Do Pal", artist: "Lata Mangeshkar & Sonu Nigam" },
+    { title: "Saathiya", artist: "Sonu Nigam" },
+    { title: "Tumse Milke Dil Ka", artist: "Sonu Nigam & others" },
+    { title: "Aal Izz Well", artist: "Sonu Nigam, Swanand Kirkire & Shaan" },
+    { title: "Give Me Some Sunshine", artist: "Suraj Jagan & Sharman Joshi" },
+    { title: "All Izz Well", artist: "Sonu Nigam, Swanand Kirkire & Shaan" },
+    { title: "Kun Faya Kun", artist: "A.R. Rahman, Javed Ali & Mohit Chauhan" },
+    { title: "Nadaan Parindey", artist: "A.R. Rahman & Mohit Chauhan" },
+    { title: "Tum Ho", artist: "Mohit Chauhan & Suzanne D'Mello" },
+    { title: "Jo Bhi Main", artist: "Mohit Chauhan" },
+    { title: "Phir Se Ud Chala", artist: "Mohit Chauhan" },
+    { title: "Matargashti", artist: "Mohit Chauhan" },
+    { title: "Masakali", artist: "Mohit Chauhan" },
+    { title: "Dooriyan", artist: "Mohit Chauhan" },
+    { title: "Pee Loon", artist: "Mohit Chauhan" },
+    { title: "Tujhko Jo Paaya", artist: "Mohit Chauhan" },
+    { title: "Saibo", artist: "Shreya Ghoshal & Tochi Raina" },
+    { title: "Teri Ore", artist: "Rahat Fateh Ali Khan & Shreya Ghoshal" },
+    { title: "Bahara", artist: "Shreya Ghoshal & Sona Mohapatra" },
+    { title: "Sun Raha Hai Na Tu", artist: "Shreya Ghoshal" },
+    { title: "Deewani Mastani", artist: "Shreya Ghoshal" },
+    { title: "Ghar More Pardesiya", artist: "Shreya Ghoshal & Vaishali Mhade" },
+    { title: "Param Sundari", artist: "Shreya Ghoshal" },
+    { title: "Aaj Ibaadat", artist: "Javed Bashir, Shadab Faridi & Altamash Faridi" },
+  ];
+
+  const songs = songMeta.map((song, i) => ({
+    title: song.title,
+    artist: song.artist,
+    src: PLACEHOLDER_SRCS[i % PLACEHOLDER_SRCS.length],
+  }));
+
+  const audio        = document.getElementById('audio');
+  const vinyl         = document.getElementById('vinyl');
+  const tonearm        = document.getElementById('tonearm');
+  const playBtn        = document.getElementById('playBtn');
+  const playIcon       = document.getElementById('playIcon');
+  const prevBtn        = document.getElementById('prevBtn');
+  const nextBtn        = document.getElementById('nextBtn');
+  const trackTitle      = document.getElementById('trackTitle');
+  const trackArtist     = document.getElementById('trackArtist');
+  const curTimeEl       = document.getElementById('curTime');
+  const durTimeEl       = document.getElementById('durTime');
+  const bar             = document.getElementById('bar');
+  const barFill         = document.getElementById('barFill');
+  const volumeSlider     = document.getElementById('volume');
+  const playlistEl       = document.getElementById('playlist');
+  const autoplayToggle   = document.getElementById('autoplayToggle');
+  const nowTag           = document.getElementById('nowTag');
+  const nowText          = document.getElementById('nowText');
+
+  let currentIndex = 0;
+  let isPlaying = false;
+
+  const ICON_PLAY  = '<path d="M8 5v14l11-7z"/>';
+  const ICON_PAUSE = '<path d="M6 5h4v14H6zM14 5h4v14h-4z"/>';
+
+  function formatTime(sec){
+    if (!isFinite(sec) || isNaN(sec)) return '0:00';
+    const m = Math.floor(sec / 60);
+    const s = Math.floor(sec % 60).toString().padStart(2, '0');
+    return `${m}:${s}`;
+  }
+
+  function buildPlaylist(){
+    playlistEl.innerHTML = '';
+    songs.forEach((song, i) => {
+      const row = document.createElement('div');
+      row.className = 'song-row' + (i === currentIndex ? ' active' : '');
+      row.innerHTML = `
+        <span class="song-index">${(i === currentIndex && isPlaying)
+          ? '<div class="eq"><span></span><span></span><span></span></div>'
+          : String(i + 1).padStart(2, '0')}</span>
+        <div class="song-meta">
+          <div class="s-title">${song.title}</div>
+          <div class="s-artist">${song.artist}</div>
+        </div>
+        <span class="song-dur" data-dur-idx="${i}">--:--</span>
+      `;
+      row.addEventListener('click', () => loadSong(i, true));
+      playlistEl.appendChild(row);
+    });
+  }
+
+  function loadSong(index, autoPlay){
+    currentIndex = (index + songs.length) % songs.length;
+    const song = songs[currentIndex];
+    audio.src = song.src;
+    trackTitle.textContent = song.title;
+    trackArtist.textContent = song.artist;
+    barFill.style.width = '0%';
+    curTimeEl.textContent = '0:00';
+    buildPlaylist();
+    if (autoPlay) play();
+    else pause();
+  }
+
+  function play(){
+    audio.play().catch(() => {});
+    isPlaying = true;
+    playIcon.innerHTML = ICON_PAUSE;
+    vinyl.classList.add('spinning');
+    tonearm.classList.add('down');
+    nowTag.classList.add('playing');
+    nowText.textContent = 'Now Playing';
+    buildPlaylist();
+  }
+
+  function pause(){
+    audio.pause();
+    isPlaying = false;
+    playIcon.innerHTML = ICON_PLAY;
+    vinyl.classList.remove('spinning');
+    tonearm.classList.remove('down');
+    nowTag.classList.remove('playing');
+    nowText.textContent = 'Paused';
+    buildPlaylist();
+  }
+
+  function togglePlay(){ isPlaying ? pause() : play(); }
+
+  function nextSong(){ loadSong(currentIndex + 1, true); }
+  function prevSong(){
+    if (audio.currentTime > 3) { audio.currentTime = 0; return; }
+    loadSong(currentIndex - 1, true);
+  }
+
+  playBtn.addEventListener('click', togglePlay);
+  nextBtn.addEventListener('click', nextSong);
+  prevBtn.addEventListener('click', prevSong);
+
+  audio.addEventListener('timeupdate', () => {
+    const pct = (audio.currentTime / audio.duration) * 100 || 0;
+    barFill.style.width = pct + '%';
+    curTimeEl.textContent = formatTime(audio.currentTime);
+  });
+
+  audio.addEventListener('loadedmetadata', () => {
+    durTimeEl.textContent = formatTime(audio.duration);
+    const durEl = playlistEl.querySelector(`[data-dur-idx="${currentIndex}"]`);
+    if (durEl) durEl.textContent = formatTime(audio.duration);
+  });
+
+  audio.addEventListener('ended', () => {
+    if (autoplayToggle.checked) nextSong();
+    else pause();
+  });
+
+  bar.addEventListener('click', (e) => {
+    const rect = bar.getBoundingClientRect();
+    const ratio = (e.clientX - rect.left) / rect.width;
+    if (isFinite(audio.duration)) audio.currentTime = ratio * audio.duration;
+  });
+
+  volumeSlider.addEventListener('input', () => {
+    audio.volume = volumeSlider.value / 100;
+  });
+
+  window.addEventListener('keydown', (e) => {
+    if (e.code === 'Space') { e.preventDefault(); togglePlay(); }
+    else if (e.key === 'ArrowRight') nextSong();
+    else if (e.key === 'ArrowLeft') prevSong();
+  });
+
+  // init
+  audio.volume = volumeSlider.value / 100;
+  loadSong(0, false);
+</script>
+
+</body>
+</html>
