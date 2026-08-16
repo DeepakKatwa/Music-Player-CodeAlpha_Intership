@@ -1,4 +1,4 @@
-# 🎵 Nightwave — Music Player — CodeAlpha Internship
+# 🎵 Music Player — CodeAlpha Internship
 
 A responsive music player web app built with **HTML, CSS, and JavaScript**, featuring a vinyl-record inspired interface, full playback controls, and a 50-song playlist.
 
